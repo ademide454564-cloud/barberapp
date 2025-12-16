@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 // Production backend URL (Render'a deploy edince bu URL'yi güncelleyin)
 // Örnek: https://barberapp-backend.onrender.com
-const PRODUCTION_URL = 'https://your-app-name.onrender.com';
+const PRODUCTION_URL = 'https://barberapp-server.onrender.com';
 
 // Development için local IP
 const LOCAL_IP = '192.168.1.13';
