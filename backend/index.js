@@ -36,6 +36,35 @@ app.use('/reviews', reviewsRouter);
 app.use('/blocked-times', blockedTimesRouter);
 app.use('/service-extras', serviceExtrasRouter);
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date(),
+    message: 'Barber App Backend is running!'
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Barber App Backend API',
+    version: '1.0.0',
+    endpoints: [
+      '/health',
+      '/services',
+      '/customers',
+      '/appointments',
+      '/staff',
+      '/verification',
+      '/photos',
+      '/reviews',
+      '/blocked-times',
+      '/service-extras'
+    ]
+  });
+});
+
 app.listen(port, '0.0.0.0', () => {
     console.log(`Server is running on port: ${port}`);
     console.log(`Server is accessible at http://localhost:${port}`);
