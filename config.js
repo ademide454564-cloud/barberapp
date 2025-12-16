@@ -9,14 +9,8 @@ const LOCAL_IP = '192.168.1.13';
 const PORT = '5000';
 
 // Otomatik URL yapılandırması
-export const API_URL = __DEV__
-  ? Platform.select({
-      web: `http://localhost:${PORT}`,
-      android: `http://10.0.2.2:${PORT}`, // Android Emulator için standart IP
-      ios: `http://${LOCAL_IP}:${PORT}`,
-      default: `http://${LOCAL_IP}:${PORT}`,
-    })
-  : PRODUCTION_URL; // Production build'de DigitalOcean URL'sini kullan
+// Her zaman Render backend kullan (Expo Go'da da çalışır)
+export const API_URL = PRODUCTION_URL;
 
 // Debug için
 export const getAPIInfo = () => ({
