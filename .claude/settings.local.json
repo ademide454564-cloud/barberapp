@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(taskkill:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(node index.js:*)",
+      "Bash(npx expo start)",
+      "Bash(curl:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npm start)",
+      "Bash(ipconfig:*)",
+      "Bash(findstr:*)",
+      "Bash(netstat:*)",
+      "Bash(start /B node index.js)",
+      "Bash(timeout /t:*)",
+      "Bash(cmd /c check-backend.bat)",
+      "Bash(ping:*)",
+      "Bash(powershell -Command \"Get-Content ''C:\\Users\\Casper\\barberapp\\screens\\MyAppointmentsScreen.js'' | Measure-Object -Line\")",
+      "Bash(powershell -Command \"Get-Content ''C:\\Users\\Casper\\barberapp\\screens\\AdminScreen.js'' | Measure-Object -Line\")",
+      "Bash(powershell -Command \"Get-Content ''C:\\Users\\Casper\\barberapp\\backend\\routes\\appointments.js'' | Measure-Object -Line\")",
+      "Bash(dir:*)",
+      "Bash(ren:*)",
+      "Bash(npx expo install:*)",
+      "Bash(node seedServiceExtras.js:*)",
+      "Bash(node:*)",
+      "Bash(powershell:*)",
+      "Bash(del nul)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

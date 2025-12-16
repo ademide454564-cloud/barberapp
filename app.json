@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "  ",
+    "slug": "barberapp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/splash1.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash1.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.barberapp"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/splash1.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.barberapp",
+      "splash": {
+        "image": "./assets/splash1.png",
+        "resizeMode": "cover",
+        "backgroundColor": "#000000"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e5a3d7cb-67f9-4ddb-b71a-fa113f21b991"
+      }
+    }
+  }
+}
