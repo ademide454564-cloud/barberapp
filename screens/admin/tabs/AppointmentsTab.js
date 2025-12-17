@@ -8,6 +8,8 @@ import {
   Modal,
   Alert,
   Animated,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/Colors';
@@ -127,6 +129,32 @@ const AppointmentsTab = React.memo(({ navigation }) => {
     );
   }, [loadAppointments]);
 
+  const handleSavePayment = useCallback(async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      const response = await fetch(`${API_URL}/appointments/update-payment/${selectedAppointment._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          payment_method: paymentMethod,
+          amount: parseFloat(paymentAmount) || 0,
+          is_paid: isPaid,
+        }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Başarılı', 'Ödeme bilgisi kaydedildi');
+        setShowManageModal(false);
+        loadAppointments();
+      } else {
+        Alert.alert('Hata', 'Ödeme bilgisi kaydedilemedi');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Bir hata oluştu');
+    }
+  }, [selectedAppointment, paymentMethod, paymentAmount, isPaid, loadAppointments]);
+
   const renderHeader = useCallback(() => (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -228,6 +256,11 @@ const AppointmentsTab = React.memo(({ navigation }) => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [showManageModal, setShowManageModal] = useState(false);
 
+  // Ödeme bilgileri
+  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [isPaid, setIsPaid] = useState(false);
+
   const renderAppointmentCard = useCallback((appointment) => {
     const startDate = new Date(appointment.start_time);
     const formattedTime = startDate.toLocaleTimeString('tr-TR', {
@@ -291,6 +324,9 @@ const AppointmentsTab = React.memo(({ navigation }) => {
           timeSlot={timeSlot}
           onAppointmentPress={(apt) => {
             setSelectedAppointment(apt);
+            setPaymentMethod(apt.payment_method || null);
+            setPaymentAmount(apt.amount ? apt.amount.toString() : '');
+            setIsPaid(apt.is_paid || false);
             setShowManageModal(true);
           }}
         />
@@ -300,6 +336,9 @@ const AppointmentsTab = React.memo(({ navigation }) => {
           selectedDate={selectedDate}
           onAppointmentPress={(apt) => {
             setSelectedAppointment(apt);
+            setPaymentMethod(apt.payment_method || null);
+            setPaymentAmount(apt.amount ? apt.amount.toString() : '');
+            setIsPaid(apt.is_paid || false);
             setShowManageModal(true);
           }}
         />
@@ -329,7 +368,7 @@ const AppointmentsTab = React.memo(({ navigation }) => {
             </View>
 
             {selectedAppointment && (
-              <View style={styles.modalBody}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.infoRow}>
                   <MaterialCommunityIcons name="account" size={20} color={Colors.textSecondary} />
                   <View style={styles.infoContent}>
@@ -362,6 +401,70 @@ const AppointmentsTab = React.memo(({ navigation }) => {
                   </View>
                 </View>
 
+                {/* Ödeme Bilgileri */}
+                <View style={styles.paymentSection}>
+                  <Text style={styles.paymentTitle}>💰 Ödeme Bilgileri</Text>
+
+                  {/* Ödeme Yöntemi */}
+                  <View style={styles.paymentMethodContainer}>
+                    <Text style={styles.paymentLabel}>Ödeme Yöntemi:</Text>
+                    <View style={styles.paymentMethods}>
+                      {['Nakit', 'Kart', 'EFT'].map((method) => (
+                        <TouchableOpacity
+                          key={method}
+                          style={[
+                            styles.paymentMethodBtn,
+                            paymentMethod === method && styles.paymentMethodBtnActive
+                          ]}
+                          onPress={() => setPaymentMethod(method)}
+                        >
+                          <Text style={[
+                            styles.paymentMethodText,
+                            paymentMethod === method && styles.paymentMethodTextActive
+                          ]}>
+                            {method}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Tutar */}
+                  <View style={styles.paymentInputContainer}>
+                    <Text style={styles.paymentLabel}>Tutar (₺):</Text>
+                    <TextInput
+                      style={styles.paymentInput}
+                      placeholder="0.00"
+                      placeholderTextColor="#ADB5BD"
+                      value={paymentAmount}
+                      onChangeText={setPaymentAmount}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  {/* Ödendi mi? */}
+                  <TouchableOpacity
+                    style={styles.paidCheckbox}
+                    onPress={() => setIsPaid(!isPaid)}
+                  >
+                    <MaterialCommunityIcons
+                      name={isPaid ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                      size={24}
+                      color={isPaid ? Colors.primary : Colors.textSecondary}
+                    />
+                    <Text style={styles.paidText}>Ödeme Alındı</Text>
+                  </TouchableOpacity>
+
+                  {/* Kaydet Butonu */}
+                  <TouchableOpacity
+                    style={styles.savePaymentBtn}
+                    onPress={handleSavePayment}
+                  >
+                    <MaterialCommunityIcons name="content-save" size={20} color={Colors.textWhite} />
+                    <Text style={styles.savePaymentText}>Ödeme Bilgisini Kaydet</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.modalActions}>
                   {selectedAppointment.status === 'Beklemede' && (
                     <TouchableOpacity
@@ -386,7 +489,7 @@ const AppointmentsTab = React.memo(({ navigation }) => {
                     <Text style={styles.cancelBtnText}>İptal Et</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -701,6 +804,92 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cancelBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textWhite,
+  },
+  paymentSection: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  paymentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  paymentMethodContainer: {
+    marginBottom: 16,
+  },
+  paymentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginBottom: 8,
+  },
+  paymentMethods: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  paymentMethodBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  paymentMethodBtnActive: {
+    backgroundColor: Colors.primary + '15',
+    borderColor: Colors.primary,
+  },
+  paymentMethodText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  paymentMethodTextActive: {
+    color: Colors.primary,
+  },
+  paymentInputContainer: {
+    marginBottom: 16,
+  },
+  paymentInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  paidCheckbox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  paidText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  savePaymentBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 14,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  savePaymentText: {
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textWhite,
