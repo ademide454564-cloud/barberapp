@@ -389,4 +389,88 @@ router.route('/available-slots').post(async (req, res) => {
     }
 });
 
+// Ödeme bilgisi güncelleme
+router.route('/update-payment/:id').post(async (req, res) => {
+    const { payment_method, amount, is_paid, payment_note } = req.body;
+
+    try {
+        const appointment = await Appointment.findById(req.params.id);
+
+        if (!appointment) {
+            return res.status(404).json('Randevu bulunamadı');
+        }
+
+        appointment.payment_method = payment_method;
+        appointment.amount = amount || 0;
+        appointment.is_paid = is_paid || false;
+        appointment.payment_note = payment_note || '';
+
+        // Ödeme yapıldıysa ve onaylandıysa, durumu "Tamamlandı" yap
+        if (is_paid && appointment.status === 'Onaylandı') {
+            appointment.status = 'Tamamlandı';
+        }
+
+        await appointment.save();
+
+        res.json({ message: 'Ödeme bilgisi güncellendi', appointment });
+    } catch (err) {
+        res.status(400).json('Error: ' + err);
+    }
+});
+
+// Ciro istatistikleri
+router.route('/revenue-stats').post(async (req, res) => {
+    const { start_date, end_date } = req.body;
+
+    try {
+        const startDate = start_date ? new Date(start_date) : new Date(new Date().setDate(1)); // Ayın ilk günü
+        const endDate = end_date ? new Date(end_date) : new Date(); // Bugün
+
+        const appointments = await Appointment.find({
+            is_paid: true,
+            createdAt: {
+                $gte: startDate,
+                $lte: endDate
+            }
+        }).populate('service_id');
+
+        // Ödeme yöntemine göre grupla
+        const stats = {
+            total_revenue: 0,
+            nakit: 0,
+            kart: 0,
+            eft: 0,
+            appointment_count: appointments.length,
+            by_method: {
+                'Nakit': { count: 0, amount: 0 },
+                'Kart': { count: 0, amount: 0 },
+                'EFT': { count: 0, amount: 0 }
+            }
+        };
+
+        appointments.forEach(apt => {
+            const amount = apt.amount || 0;
+            stats.total_revenue += amount;
+
+            if (apt.payment_method === 'Nakit') {
+                stats.nakit += amount;
+                stats.by_method['Nakit'].count++;
+                stats.by_method['Nakit'].amount += amount;
+            } else if (apt.payment_method === 'Kart') {
+                stats.kart += amount;
+                stats.by_method['Kart'].count++;
+                stats.by_method['Kart'].amount += amount;
+            } else if (apt.payment_method === 'EFT') {
+                stats.eft += amount;
+                stats.by_method['EFT'].count++;
+                stats.by_method['EFT'].amount += amount;
+            }
+        });
+
+        res.json(stats);
+    } catch (err) {
+        res.status(400).json('Error: ' + err);
+    }
+});
+
 module.exports = router;
