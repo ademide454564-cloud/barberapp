@@ -4,6 +4,7 @@ let Customer = require('../models/customer.model');
 let Service = require('../models/service.model');
 let BlockedTime = require('../models/blockedTime.model');
 const { sendSMS } = require('../utils/smsService');
+const { sendPushNotification } = require('../utils/pushNotification');
 
 // Geçici kod saklama (production'da Redis kullanılmalı)
 const verificationCodes = new Map();
@@ -206,9 +207,35 @@ router.route('/update/:id').post(async (req, res) => {
 
 router.route('/approve/:id').post(async (req, res) => {
     try {
-        const appointment = await Appointment.findById(req.params.id);
+        const appointment = await Appointment.findById(req.params.id)
+            .populate('customer_id')
+            .populate('service_id')
+            .populate('staff_id');
+
         appointment.status = 'Onaylandı';
         await appointment.save();
+
+        // Push notification gönder
+        if (appointment.customer_id && appointment.customer_id.push_token) {
+            const appointmentDate = new Date(appointment.start_time);
+            const formattedDate = appointmentDate.toLocaleDateString('tr-TR', {
+                day: 'numeric',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            await sendPushNotification(
+                appointment.customer_id.push_token,
+                '✅ Randevunuz Onaylandı!',
+                `${formattedDate} tarihli ${appointment.service_id?.name} randevunuz onaylandı.`,
+                {
+                    type: 'appointment_approved',
+                    appointmentId: appointment._id
+                }
+            );
+        }
+
         res.json('Appointment approved!');
     } catch (err) {
         res.status(400).json('Error: ' + err);
@@ -394,11 +421,15 @@ router.route('/update-payment/:id').post(async (req, res) => {
     const { payment_method, amount, is_paid, payment_note } = req.body;
 
     try {
-        const appointment = await Appointment.findById(req.params.id);
+        const appointment = await Appointment.findById(req.params.id)
+            .populate('customer_id')
+            .populate('service_id');
 
         if (!appointment) {
             return res.status(404).json('Randevu bulunamadı');
         }
+
+        const wasNotCompleted = appointment.status !== 'Tamamlandı';
 
         appointment.payment_method = payment_method;
         appointment.amount = amount || 0;
@@ -408,6 +439,19 @@ router.route('/update-payment/:id').post(async (req, res) => {
         // Ödeme yapıldıysa ve onaylandıysa, durumu "Tamamlandı" yap
         if (is_paid && appointment.status === 'Onaylandı') {
             appointment.status = 'Tamamlandı';
+
+            // İlk kez tamamlanıyorsa değerlendirme bildirimi gönder
+            if (wasNotCompleted && appointment.customer_id && appointment.customer_id.push_token) {
+                await sendPushNotification(
+                    appointment.customer_id.push_token,
+                    '⭐ Deneyiminizi Değerlendirin',
+                    `${appointment.service_id?.name} hizmetimizi nasıl buldunuz? Görüşleriniz bizim için değerli!`,
+                    {
+                        type: 'review_request',
+                        appointmentId: appointment._id
+                    }
+                );
+            }
         }
 
         await appointment.save();
