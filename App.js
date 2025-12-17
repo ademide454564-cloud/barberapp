@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Colors } from './constants/Colors';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -78,46 +79,48 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <NavigationContainer>
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.background },
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Booking" component={BookingScreen} />
-          <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
-          <Stack.Screen name="Admin" component={AdminScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Review" component={ReviewScreen} />
-          <Stack.Screen name="NotificationCenter" component={NotificationCenterScreen} />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+        <NavigationContainer>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.background },
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Booking" component={BookingScreen} />
+            <Stack.Screen name="MyAppointments" component={MyAppointmentsScreen} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Review" component={ReviewScreen} />
+            <Stack.Screen name="NotificationCenter" component={NotificationCenterScreen} />
 
-          {/* Admin Management Screens */}
-          <Stack.Screen name="Services" component={ServicesScreen} />
-          <Stack.Screen name="BlockedTimes" component={BlockedTimesScreen} />
-          <Stack.Screen name="AddCustomer" component={AddCustomerScreen} />
-          <Stack.Screen name="NewVisit" component={NewVisitScreen} />
-          <Stack.Screen name="GalleryManagement" component={GalleryManagementScreen} />
-          <Stack.Screen name="ReviewsManagement" component={ReviewsManagementScreen} />
+            {/* Admin Management Screens */}
+            <Stack.Screen name="Services" component={ServicesScreen} />
+            <Stack.Screen name="BlockedTimes" component={BlockedTimesScreen} />
+            <Stack.Screen name="AddCustomer" component={AddCustomerScreen} />
+            <Stack.Screen name="NewVisit" component={NewVisitScreen} />
+            <Stack.Screen name="GalleryManagement" component={GalleryManagementScreen} />
+            <Stack.Screen name="ReviewsManagement" component={ReviewsManagementScreen} />
 
-          {/* Admin Settings Screens */}
-          <Stack.Screen name="CalendarSettings" component={CalendarSettingsScreen} />
-          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-          <Stack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
+            {/* Admin Settings Screens */}
+            <Stack.Screen name="CalendarSettings" component={CalendarSettingsScreen} />
+            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <Stack.Screen name="GeneralSettings" component={GeneralSettingsScreen} />
 
-          {/* Admin Report Screens */}
-          <Stack.Screen name="Blacklist" component={BlacklistScreen} />
-          <Stack.Screen name="AppointmentHistory" component={AppointmentHistoryScreen} />
-          <Stack.Screen name="FrequentCancellers" component={FrequentCancellersScreen} />
-          <Stack.Screen name="RevenueReport" component={RevenueReportScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </SafeAreaProvider>
+            {/* Admin Report Screens */}
+            <Stack.Screen name="Blacklist" component={BlacklistScreen} />
+            <Stack.Screen name="AppointmentHistory" component={AppointmentHistoryScreen} />
+            <Stack.Screen name="FrequentCancellers" component={FrequentCancellersScreen} />
+            <Stack.Screen name="RevenueReport" component={RevenueReportScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 

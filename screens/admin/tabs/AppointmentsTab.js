@@ -155,6 +155,74 @@ const AppointmentsTab = React.memo(({ navigation }) => {
     }
   }, [selectedAppointment, paymentMethod, paymentAmount, isPaid, loadAppointments]);
 
+  const loadServices = useCallback(async () => {
+    try {
+      setLoadingServices(true);
+      const response = await fetch(`${API_URL}/services`);
+      const data = await response.json();
+      setServices(data);
+    } catch (error) {
+      console.error('Error loading services:', error);
+    } finally {
+      setLoadingServices(false);
+    }
+  }, []);
+
+  const loadStaff = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/staff`);
+      const data = await response.json();
+      setStaff(data);
+    } catch (error) {
+      console.error('Error loading staff:', error);
+    }
+  }, []);
+
+  const handleEmptySlotPress = useCallback((slotTime) => {
+    setNewAppointment({
+      phone_number: '',
+      service_id: '',
+      staff_id: '',
+      start_time: slotTime,
+    });
+    setShowCreateModal(true);
+    loadServices();
+    loadStaff();
+  }, [loadServices, loadStaff]);
+
+  const handleCreateAppointment = useCallback(async () => {
+    if (!newAppointment.phone_number || !newAppointment.service_id || !newAppointment.staff_id || !newAppointment.start_time) {
+      Alert.alert('Hata', 'Lütfen tüm alanları doldurun');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/appointments/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number: newAppointment.phone_number,
+          service_id: newAppointment.service_id,
+          staff_id: newAppointment.staff_id,
+          start_time: newAppointment.start_time,
+          status: 'Onaylandı',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert('Başarılı', 'Randevu oluşturuldu');
+        setShowCreateModal(false);
+        loadAppointments();
+      } else {
+        Alert.alert('Hata', result.message || 'Randevu oluşturulamadı');
+      }
+    } catch (error) {
+      Alert.alert('Hata', 'Bir hata oluştu');
+    }
+  }, [newAppointment, loadAppointments]);
+
   const renderHeader = useCallback(() => (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -261,6 +329,18 @@ const AppointmentsTab = React.memo(({ navigation }) => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [isPaid, setIsPaid] = useState(false);
 
+  // Yeni randevu oluşturma
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newAppointment, setNewAppointment] = useState({
+    phone_number: '',
+    service_id: '',
+    staff_id: '',
+    start_time: null,
+  });
+  const [services, setServices] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [loadingServices, setLoadingServices] = useState(false);
+
   const renderAppointmentCard = useCallback((appointment) => {
     const startDate = new Date(appointment.start_time);
     const formattedTime = startDate.toLocaleTimeString('tr-TR', {
@@ -322,6 +402,7 @@ const AppointmentsTab = React.memo(({ navigation }) => {
         <CalendarDayView
           appointments={appointments}
           timeSlot={timeSlot}
+          selectedDate={selectedDate}
           onAppointmentPress={(apt) => {
             setSelectedAppointment(apt);
             setPaymentMethod(apt.payment_method || null);
@@ -329,6 +410,8 @@ const AppointmentsTab = React.memo(({ navigation }) => {
             setIsPaid(apt.is_paid || false);
             setShowManageModal(true);
           }}
+          onEmptySlotPress={handleEmptySlotPress}
+          onAppointmentDrop={loadAppointments}
         />
       ) : viewMode === 'week' ? (
         <CalendarWeekView
@@ -491,6 +574,133 @@ const AppointmentsTab = React.memo(({ navigation }) => {
                 </View>
               </ScrollView>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Appointment Modal */}
+      <Modal visible={showCreateModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Yeni Randevu Oluştur</Text>
+              <TouchableOpacity onPress={() => {
+                setShowCreateModal(false);
+                setNewAppointment({
+                  phone_number: '',
+                  service_id: '',
+                  staff_id: '',
+                  start_time: null,
+                });
+              }}>
+                <MaterialCommunityIcons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {/* Tarih & Saat */}
+              {newAppointment.start_time && (
+                <View style={styles.infoRow}>
+                  <MaterialCommunityIcons name="clock-outline" size={20} color={Colors.textSecondary} />
+                  <View style={styles.infoContent}>
+                    <Text style={styles.infoLabel}>Tarih & Saat</Text>
+                    <Text style={styles.infoValue}>
+                      {new Date(newAppointment.start_time).toLocaleString('tr-TR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Telefon Numarası */}
+              <View style={styles.createInputContainer}>
+                <Text style={styles.createLabel}>Müşteri Telefon Numarası</Text>
+                <TextInput
+                  style={styles.createInput}
+                  placeholder="5XXXXXXXXX"
+                  placeholderTextColor="#ADB5BD"
+                  value={newAppointment.phone_number}
+                  onChangeText={(text) => setNewAppointment({ ...newAppointment, phone_number: text })}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                />
+              </View>
+
+              {/* Hizmet Seçimi */}
+              <View style={styles.createInputContainer}>
+                <Text style={styles.createLabel}>Hizmet Seç</Text>
+                {loadingServices ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <View style={styles.servicesList}>
+                    {services.map((service) => (
+                      <TouchableOpacity
+                        key={service._id}
+                        style={[
+                          styles.serviceOption,
+                          newAppointment.service_id === service._id && styles.serviceOptionActive
+                        ]}
+                        onPress={() => setNewAppointment({ ...newAppointment, service_id: service._id })}
+                      >
+                        <View style={styles.serviceInfo}>
+                          <Text style={[
+                            styles.serviceName,
+                            newAppointment.service_id === service._id && styles.serviceNameActive
+                          ]}>
+                            {service.name}
+                          </Text>
+                          <Text style={styles.servicePrice}>₺{service.price}</Text>
+                        </View>
+                        {newAppointment.service_id === service._id && (
+                          <MaterialCommunityIcons name="check-circle" size={20} color={Colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              {/* Personel Seçimi */}
+              <View style={styles.createInputContainer}>
+                <Text style={styles.createLabel}>Personel Seç</Text>
+                <View style={styles.staffList}>
+                  {staff.map((member) => (
+                    <TouchableOpacity
+                      key={member._id}
+                      style={[
+                        styles.staffOption,
+                        newAppointment.staff_id === member._id && styles.staffOptionActive
+                      ]}
+                      onPress={() => setNewAppointment({ ...newAppointment, staff_id: member._id })}
+                    >
+                      <Text style={[
+                        styles.staffName,
+                        newAppointment.staff_id === member._id && styles.staffNameActive
+                      ]}>
+                        {member.name}
+                      </Text>
+                      {newAppointment.staff_id === member._id && (
+                        <MaterialCommunityIcons name="check-circle" size={20} color={Colors.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Oluştur Butonu */}
+              <TouchableOpacity
+                style={styles.createBtn}
+                onPress={handleCreateAppointment}
+              >
+                <MaterialCommunityIcons name="calendar-plus" size={20} color={Colors.textWhite} />
+                <Text style={styles.createBtnText}>Randevu Oluştur</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -891,6 +1101,103 @@ const styles = StyleSheet.create({
   },
   savePaymentText: {
     fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textWhite,
+  },
+  createInputContainer: {
+    marginBottom: 20,
+  },
+  createLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 10,
+  },
+  createInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  servicesList: {
+    gap: 8,
+  },
+  serviceOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  serviceOptionActive: {
+    backgroundColor: Colors.primary + '15',
+    borderColor: Colors.primary,
+  },
+  serviceInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  serviceName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  serviceNameActive: {
+    color: Colors.primary,
+  },
+  servicePrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  staffList: {
+    gap: 8,
+  },
+  staffOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    padding: 12,
+  },
+  staffOptionActive: {
+    backgroundColor: Colors.primary + '15',
+    borderColor: Colors.primary,
+  },
+  staffName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  staffNameActive: {
+    color: Colors.primary,
+  },
+  createBtn: {
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  createBtnText: {
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textWhite,
   },

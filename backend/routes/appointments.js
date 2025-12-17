@@ -517,4 +517,38 @@ router.route('/revenue-stats').post(async (req, res) => {
     }
 });
 
+// Randevu saatini değiştir (Drag & Drop için)
+router.route('/reschedule/:id').post(async (req, res) => {
+    const { start_time } = req.body;
+
+    try {
+        const appointment = await Appointment.findById(req.params.id)
+            .populate('customer_id')
+            .populate('service_id');
+
+        if (!appointment) {
+            return res.status(404).json('Appointment not found');
+        }
+
+        // Yeni saatte başka randevu var mı kontrol et
+        const conflictingAppointment = await Appointment.findOne({
+            _id: { $ne: req.params.id },
+            start_time: new Date(start_time),
+            status: { $ne: 'İptal Edildi' }
+        });
+
+        if (conflictingAppointment) {
+            return res.status(400).json({ message: 'Bu saatte başka bir randevu var' });
+        }
+
+        // Saati güncelle
+        appointment.start_time = new Date(start_time);
+        await appointment.save();
+
+        res.json({ message: 'Randevu saati güncellendi', appointment });
+    } catch (err) {
+        res.status(400).json('Error: ' + err);
+    }
+});
+
 module.exports = router;
