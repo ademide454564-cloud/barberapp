@@ -2,6 +2,7 @@ const router = require('express').Router();
 let Appointment = require('../models/appointment.model');
 let Customer = require('../models/customer.model');
 let Service = require('../models/service.model');
+let BlockedTime = require('../models/blockedTime.model');
 const { sendSMS } = require('../utils/smsService');
 
 // Geçici kod saklama (production'da Redis kullanılmalı)
@@ -301,6 +302,38 @@ router.route('/available-slots').post(async (req, res) => {
         const endOfDay = new Date(date);
         endOfDay.setHours(20, 0, 0, 0);
 
+        // Kapalı zamanları kontrol et
+        const blockedTimes = await BlockedTime.find({
+            $or: [
+                // Tam gün kapalı
+                {
+                    type: 'full_day',
+                    date: {
+                        $gte: startOfDay,
+                        $lt: endOfDay
+                    }
+                },
+                // Belirli saat aralığı kapalı
+                {
+                    type: 'time_range',
+                    date: {
+                        $gte: startOfDay,
+                        $lt: endOfDay
+                    }
+                },
+                // Tekrarlayan kapalı günler (örn: her pazar)
+                {
+                    is_recurring: true,
+                    recurring_day: startOfDay.getDay()
+                }
+            ]
+        });
+
+        // Eğer tam gün kapalıysa, boş array dön
+        if (blockedTimes.some(bt => bt.type === 'full_day')) {
+            return res.json([]);
+        }
+
         const appointments = await Appointment.find({
             staff_id,
             status: { $ne: 'İptal Edildi' },
@@ -323,7 +356,24 @@ router.route('/available-slots').post(async (req, res) => {
                 return (currentTime < aptEnd && slotEnd > aptStart);
             });
 
-            if (!isConflict) {
+            // Kapalı saat aralığında mı kontrol et
+            const isBlocked = blockedTimes.some(bt => {
+                if (bt.type === 'time_range') {
+                    const [startHour, startMin] = bt.start_time.split(':');
+                    const [endHour, endMin] = bt.end_time.split(':');
+
+                    const blockStart = new Date(currentTime);
+                    blockStart.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+
+                    const blockEnd = new Date(currentTime);
+                    blockEnd.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
+
+                    return (currentTime < blockEnd && slotEnd > blockStart);
+                }
+                return false;
+            });
+
+            if (!isConflict && !isBlocked) {
                 slots.push({
                     start_time: new Date(currentTime),
                     end_time: new Date(slotEnd)

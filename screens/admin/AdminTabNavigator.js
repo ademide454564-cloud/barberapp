@@ -2,7 +2,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../../constants/Colors';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 
 // Tab Screens
 import AppointmentsTab from './tabs/AppointmentsTab';
@@ -24,8 +24,8 @@ export default function AdminTabNavigator() {
           backgroundColor: Colors.cardBackground,
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          height: 65,
-          paddingBottom: 8,
+          height: Platform.OS === 'android' ? 70 : 75,
+          paddingBottom: Platform.OS === 'android' ? 10 : 8,
           paddingTop: 8,
           elevation: 8,
           shadowColor: '#000',

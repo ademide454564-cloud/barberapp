@@ -73,7 +73,7 @@ export default function MyAppointmentsScreen({ navigation }) {
 
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/appointments/send-code`, {
+      const response = await fetch(`${API_URL}/appointments/send-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone_number: phone }),
