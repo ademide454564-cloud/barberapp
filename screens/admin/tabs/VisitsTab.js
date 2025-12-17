@@ -20,15 +20,34 @@ const VisitsTab = React.memo(({ navigation }) => {
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [revenueStats, setRevenueStats] = useState(null);
 
   useEffect(() => {
     loadVisits();
+    loadRevenueStats();
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
   }, [activeTab]);
+
+  const loadRevenueStats = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/appointments/revenue-stats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_date: new Date(new Date().setDate(1)), // Ayın ilk günü
+          end_date: new Date(), // Bugün
+        }),
+      });
+      const data = await response.json();
+      setRevenueStats(data);
+    } catch (error) {
+      console.error('Error loading revenue stats:', error);
+    }
+  }, []);
 
   const loadVisits = useCallback(async () => {
     try {
@@ -125,6 +144,52 @@ const VisitsTab = React.memo(({ navigation }) => {
     </View>
   ), [activeTab, setActiveTab, visits]);
 
+  const renderRevenueStats = useCallback(() => {
+    if (!revenueStats) return null;
+
+    return (
+      <View style={styles.revenueContainer}>
+        <Text style={styles.revenueTitle}>📊 Aylık Ciro (Bu Ay)</Text>
+
+        {/* Toplam Ciro */}
+        <View style={styles.totalRevenueCard}>
+          <MaterialCommunityIcons name="cash-multiple" size={32} color={Colors.primary} />
+          <View style={styles.totalRevenueInfo}>
+            <Text style={styles.totalRevenueLabel}>Toplam Ciro</Text>
+            <Text style={styles.totalRevenueAmount}>₺{revenueStats.total_revenue.toFixed(2)}</Text>
+          </View>
+          <View style={styles.appointmentCount}>
+            <Text style={styles.appointmentCountText}>{revenueStats.appointment_count} Randevu</Text>
+          </View>
+        </View>
+
+        {/* Ödeme Yöntemleri */}
+        <View style={styles.paymentMethodsGrid}>
+          <View style={styles.paymentMethodCard}>
+            <MaterialCommunityIcons name="cash" size={24} color="#22C55E" />
+            <Text style={styles.paymentMethodLabel}>Nakit</Text>
+            <Text style={styles.paymentMethodAmount}>₺{revenueStats.nakit.toFixed(2)}</Text>
+            <Text style={styles.paymentMethodCount}>{revenueStats.by_method.Nakit.count} işlem</Text>
+          </View>
+
+          <View style={styles.paymentMethodCard}>
+            <MaterialCommunityIcons name="credit-card" size={24} color="#3B82F6" />
+            <Text style={styles.paymentMethodLabel}>Kart</Text>
+            <Text style={styles.paymentMethodAmount}>₺{revenueStats.kart.toFixed(2)}</Text>
+            <Text style={styles.paymentMethodCount}>{revenueStats.by_method.Kart.count} işlem</Text>
+          </View>
+
+          <View style={styles.paymentMethodCard}>
+            <MaterialCommunityIcons name="bank-transfer" size={24} color="#8B5CF6" />
+            <Text style={styles.paymentMethodLabel}>EFT</Text>
+            <Text style={styles.paymentMethodAmount}>₺{revenueStats.eft.toFixed(2)}</Text>
+            <Text style={styles.paymentMethodCount}>{revenueStats.by_method.EFT.count} işlem</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }, [revenueStats]);
+
   const renderVisitCard = useCallback((visit) => {
     const startDate = new Date(visit.start_time);
     const formattedDate = startDate.toLocaleDateString('tr-TR', {
@@ -194,6 +259,8 @@ const VisitsTab = React.memo(({ navigation }) => {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        {renderRevenueStats()}
+
         {loading ? (
           <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
         ) : visits.length === 0 ? (
@@ -409,5 +476,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: Colors.textWhite,
+  },
+  revenueContainer: {
+    padding: 16,
+    backgroundColor: Colors.background,
+  },
+  revenueTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.text,
+    marginBottom: 16,
+  },
+  totalRevenueCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: Colors.primary + '30',
+  },
+  totalRevenueInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  totalRevenueLabel: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 4,
+  },
+  totalRevenueAmount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.primary,
+  },
+  appointmentCount: {
+    backgroundColor: Colors.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  appointmentCountText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.primary,
+  },
+  paymentMethodsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  paymentMethodCard: {
+    flex: 1,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  paymentMethodLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: 8,
+  },
+  paymentMethodAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.text,
+    marginTop: 4,
+  },
+  paymentMethodCount: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
 });
