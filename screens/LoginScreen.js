@@ -130,7 +130,7 @@ export default function LoginScreen({ navigation, route }) {
     }
   };
 
-  const isAdminLogin = phoneNumber === '5541215231';
+  const isAdminLogin = phoneNumber === '5541483634';
 
   return (
     <KeyboardAvoidingView

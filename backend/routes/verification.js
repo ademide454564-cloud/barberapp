@@ -14,7 +14,8 @@ router.route('/send').post(async (req, res) => {
   }
 
   try {
-    const code = generateCode();
+    // DEV MODE: Sabit kod kullan (NetGSM bağlanana kadar)
+    const code = '123456';
     const expires_at = new Date(Date.now() + 5 * 60 * 1000);
 
     await Verification.deleteMany({ phone_number });

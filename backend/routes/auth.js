@@ -44,8 +44,8 @@ router.post('/send-sms', async (req, res) => {
         const { phone_number } = req.body;
         if (!phone_number) return res.status(400).json({ message: 'Telefon numarası gereklidir.' });
 
-        // Generate code
-        const code = generateCode();
+        // DEV MODE: Sabit kod kullan (NetGSM bağlanana kadar)
+        const code = '123456';
         const expires_at = new Date(Date.now() + 5 * 60 * 1000); // 5 dk
 
         // Mevcut kodları sil
@@ -98,7 +98,7 @@ router.post('/verify-and-register', async (req, res) => {
         }
 
         // Yeni kullanıcı oluştur
-        const isAdmin = phone_number === '5541215231';
+        const isAdmin = phone_number === '5541483634';
 
         customer = new Customer({
             name,
