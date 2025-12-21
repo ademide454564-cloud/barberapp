@@ -8,7 +8,7 @@ import { View, StyleSheet, Platform } from 'react-native';
 import AppointmentsTab from './tabs/AppointmentsTab';
 import VisitsTab from './tabs/VisitsTab';
 import NewActionTab from './tabs/NewActionTab';
-import CustomersTab from './tabs/CustomersTab';
+import CustomersStack from './CustomersStack';
 import MoreTab from './tabs/MoreTab';
 
 const Tab = createBottomTabNavigator();
@@ -89,7 +89,7 @@ export default function AdminTabNavigator() {
       />
       <Tab.Screen
         name="Müşteriler"
-        component={CustomersTab}
+        component={CustomersStack}
         options={{
           tabBarIcon: ({ focused, color, size }) => (
             <MaterialCommunityIcons

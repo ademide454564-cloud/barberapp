@@ -153,7 +153,11 @@ const CustomersTab = React.memo(({ navigation }) => {
   ), [activeTab, setActiveTab, customers, pendingApprovals]);
 
   const renderCustomerCard = useCallback((customer) => (
-    <TouchableOpacity key={customer._id} style={styles.customerCard}>
+    <TouchableOpacity
+      key={customer._id}
+      style={styles.customerCard}
+      onPress={() => navigation.navigate('CustomerDetail', { customer })}
+    >
       <View style={styles.customerAvatar}>
         <MaterialCommunityIcons name="account" size={28} color={Colors.primary} />
       </View>
@@ -166,7 +170,7 @@ const CustomersTab = React.memo(({ navigation }) => {
       </View>
       <MaterialCommunityIcons name="chevron-right" size={24} color={Colors.textLight} />
     </TouchableOpacity>
-  ), []);
+  ), [navigation]);
 
   const renderPendingApprovalCard = useCallback((appointment) => {
     const startDate = new Date(appointment.start_time);
