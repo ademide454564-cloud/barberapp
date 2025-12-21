@@ -33,9 +33,11 @@ export default function NewBookingScreen({ route, navigation }) {
   const [blockedDayMessage, setBlockedDayMessage] = useState('');
   const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [showTimeSection, setShowTimeSection] = useState(false);
+  const [staffId, setStaffId] = useState(null);
 
   useEffect(() => {
     loadServiceExtras();
+    loadStaff();
     checkLoginStatus();
     generateDates();
   }, []);
@@ -85,6 +87,18 @@ export default function NewBookingScreen({ route, navigation }) {
     } catch (error) {
       console.error('Error loading service extras:', error);
       Alert.alert('Hata', 'Hizmetler yüklenirken bir hata oluştu');
+    }
+  };
+
+  const loadStaff = async () => {
+    try {
+      const response = await fetch(`${API_URL}/staff`);
+      const data = await response.json();
+      if (data.length > 0) {
+        setStaffId(data[0]._id); // İlk (ve tek) staff: KAAN HERLİ
+      }
+    } catch (error) {
+      console.error('Error loading staff:', error);
     }
   };
 
@@ -182,7 +196,7 @@ export default function NewBookingScreen({ route, navigation }) {
       // Fetch available slots from backend
       const url = `${API_URL}/appointments/available-slots`;
       const body = {
-        staff_id: '692deddaa00a8caa246cec0d',
+        staff_id: staffId,
         date: selectedDate.toISOString(),
         service_id: serviceId,
       };
@@ -289,7 +303,7 @@ export default function NewBookingScreen({ route, navigation }) {
             email: customerEmail,
           },
           service_id: serviceId,
-          staff_id: '692deddaa00a8caa246cec0d',
+          staff_id: staffId,
           start_time: selectedSlot.start_time,
           selected_extras: selectedServices,
         }),
