@@ -221,42 +221,16 @@ export default function NewBookingScreen({ route, navigation }) {
       const availableSlotsData = await response.json();
       console.log('Available slots from backend:', availableSlotsData.length);
 
-      // Generate all slots (10:30 - 20:30)
-      const allSlots = [];
-      const currentDate = new Date(selectedDate);
-      currentDate.setHours(0, 0, 0, 0);
+      // Backend'den gelen müsait saatleri direkt kullan
+      const slots = availableSlotsData.map(slot => ({
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        isAvailable: true,
+      }));
 
-      const startTime = new Date(currentDate);
-      startTime.setHours(10, 30, 0, 0);
-      const endTime = new Date(currentDate);
-      endTime.setHours(20, 30, 0, 0);
+      console.log('Available slots:', slots.length);
 
-      let slotStart = new Date(startTime);
-      while (slotStart <= endTime) {
-        // Check if this slot is in the available slots
-        const isAvailable = Array.isArray(availableSlotsData) && availableSlotsData.some(availableSlot => {
-          const availableStart = new Date(availableSlot.start_time);
-          return (
-            availableStart.getHours() === slotStart.getHours() &&
-            availableStart.getMinutes() === slotStart.getMinutes() &&
-            availableStart.toDateString() === slotStart.toDateString()
-          );
-        });
-
-        allSlots.push({
-          start_time: slotStart.toISOString(),
-          end_time: new Date(slotStart.getTime() + totalDuration * 60000).toISOString(),
-          isAvailable: isAvailable,
-        });
-
-        slotStart = new Date(slotStart.getTime() + 30 * 60000);
-      }
-
-      console.log('All slots generated:', allSlots.length);
-      console.log('Available slots:', allSlots.filter(s => s.isAvailable).length);
-      console.log('Booked slots:', allSlots.filter(s => !s.isAvailable).length);
-
-      setAvailableSlots(allSlots);
+      setAvailableSlots(slots);
       setShowTimeSection(true);
       setExpandedSection('time'); // Auto-open time section
       console.log('=== loadAvailableSlots completed successfully ===');
