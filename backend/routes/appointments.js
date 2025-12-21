@@ -297,16 +297,19 @@ router.route('/by-phone').post(async (req, res) => {
             return res.json([]);
         }
 
-        // Müşteriye ait randevuları bul (iptal edilmemiş ve gelecekteki)
+        // Müşteriye ait randevuları bul (son 30 günlük + gelecekteki)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
         const appointments = await Appointment.find({
             customer_id: customer._id,
             status: { $ne: 'İptal Edildi' },
-            start_time: { $gte: new Date() }
+            start_time: { $gte: thirtyDaysAgo }
         })
         .populate('service_id')
         .populate('staff_id')
         .populate('customer_id')
-        .sort('start_time');
+        .sort('-start_time'); // En yeni önce
 
         res.json(appointments);
     } catch (err) {
