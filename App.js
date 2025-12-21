@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { API_URL } from './config';
 
 // Screens
 import HomeScreen from './screens/HomeScreen';
@@ -128,43 +129,50 @@ export default function App() {
 async function registerForPushNotificationsAsync() {
   let token;
 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
-  }
-
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
     }
 
-    if (finalStatus !== 'granted') {
-      console.log('Bildirim izni alınamadı!');
-      return;
+    if (Device.isDevice) {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('Bildirim izni alınamadı!');
+        return;
+      }
+
+      // Expo Go SDK 53+ bu özelliği desteklemiyor, development build gerekli
+      token = (await Notifications.getExpoPushTokenAsync()).data;
+      console.log('Push token:', token);
+
+      // Token'ı AsyncStorage'a kaydet
+      await AsyncStorage.setItem('pushToken', token);
+
+      // Kullanıcı giriş yapmışsa token'ı backend'e gönder
+      const userData = await AsyncStorage.getItem('userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        await updatePushToken(user.phone_number, token);
+      }
+    } else {
+      console.log('Fiziksel cihaz gerekli');
     }
-
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Push token:', token);
-
-    // Token'ı AsyncStorage'a kaydet
-    await AsyncStorage.setItem('pushToken', token);
-
-    // Kullanıcı giriş yapmışsa token'ı backend'e gönder
-    const userData = await AsyncStorage.getItem('userData');
-    if (userData) {
-      const user = JSON.parse(userData);
-      await updatePushToken(user.phone_number, token);
-    }
-  } else {
-    console.log('Fiziksel cihaz gerekli');
+  } catch (error) {
+    console.log('⚠️ Push notifications Expo Go\'da desteklenmiyor (SDK 53+)');
+    console.log('Uygulama normal çalışmaya devam edecek, sadece bildirimler devre dışı.');
+    // Hata olsa bile uygulama çalışmaya devam etsin
   }
 
   return token;
@@ -173,7 +181,7 @@ async function registerForPushNotificationsAsync() {
 // Backend'e push token'ı gönder
 async function updatePushToken(phone_number, pushToken) {
   try {
-    await axios.post('http://10.0.2.2:5000/customers/update-push-token', {
+    await axios.post(`${API_URL}/customers/update-push-token`, {
       phone_number,
       push_token: pushToken,
     });

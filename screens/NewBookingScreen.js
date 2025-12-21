@@ -79,11 +79,12 @@ export default function NewBookingScreen({ route, navigation }) {
 
   const loadServiceExtras = async () => {
     try {
-      const response = await fetch(`${API_URL}/service-extras/category/Saç`);
+      const response = await fetch(`${API_URL}/service-extras`);
       const data = await response.json();
       setServiceExtras(data);
     } catch (error) {
       console.error('Error loading service extras:', error);
+      Alert.alert('Hata', 'Hizmetler yüklenirken bir hata oluştu');
     }
   };
 
