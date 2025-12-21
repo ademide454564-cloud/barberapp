@@ -172,8 +172,11 @@ export default function NewBookingScreen({ route, navigation }) {
       }
       console.log('Total duration:', totalDuration);
 
-      // Use default service ID (created in backend)
-      const serviceId = '69355fb1bd18f186c23d6e1e'; // Default "Genel Hizmet" service
+      // Use first service as default, or first selected service
+      let serviceId = selectedServices.length > 0 ? selectedServices[0] : null;
+      if (!serviceId && serviceExtras.length > 0) {
+        serviceId = serviceExtras[0]._id; // Use first available service
+      }
       console.log('Using service ID:', serviceId);
 
       // Fetch available slots from backend
@@ -269,6 +272,13 @@ export default function NewBookingScreen({ route, navigation }) {
 
     try {
       setLoading(true);
+
+      // Get service ID from selected services or use first available
+      let serviceId = selectedServices.length > 0 ? selectedServices[0] : null;
+      if (!serviceId && serviceExtras.length > 0) {
+        serviceId = serviceExtras[0]._id;
+      }
+
       const response = await fetch(`${API_URL}/appointments/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -278,7 +288,7 @@ export default function NewBookingScreen({ route, navigation }) {
             phone_number: phoneNumber,
             email: customerEmail,
           },
-          service_id: '69355fb1bd18f186c23d6e1e', // Default "Genel Hizmet" service
+          service_id: serviceId,
           staff_id: '692deddaa00a8caa246cec0d',
           start_time: selectedSlot.start_time,
           selected_extras: selectedServices,
