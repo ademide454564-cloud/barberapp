@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const Customer = require('../models/customer.model');
 const Verification = require('../models/verification.model');
+const bcrypt = require('bcryptjs');
 
 // Helper to generate 6 digit code
 const generateCode = () => {
@@ -22,9 +23,18 @@ router.post('/login', async (req, res) => {
             return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
         }
 
-        // Basit şifre kontrolü (bcrypt yoksa direkt karşılaştırma)
-        // Not: Gerçek uygulamada bcrypt kullanılmalıdır.
-        if (customer.password !== password) {
+        // Şifre kontrolü: bcrypt hash veya plain text desteği
+        let isPasswordValid = false;
+
+        // Eğer şifre hash ile başlıyorsa bcrypt kullan
+        if (customer.password.startsWith('$2b$') || customer.password.startsWith('$2a$')) {
+            isPasswordValid = await bcrypt.compare(password, customer.password);
+        } else {
+            // Plain text şifre karşılaştırması
+            isPasswordValid = customer.password === password;
+        }
+
+        if (!isPasswordValid) {
             return res.status(400).json({ message: 'Hatalı şifre.' });
         }
 
