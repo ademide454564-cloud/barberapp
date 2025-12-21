@@ -38,21 +38,16 @@ const CustomersTab = React.memo(({ navigation }) => {
     try {
       setLoading(true);
 
+      // Load all customers from backend
+      const customersResponse = await fetch(`${API_URL}/customers`);
+      const allCustomers = await customersResponse.json();
+      setCustomers(Array.isArray(allCustomers) ? allCustomers : []);
+
       // Load pending appointments for approval
       const appointmentsResponse = await fetch(`${API_URL}/appointments`);
       const appointments = await appointmentsResponse.json();
       const pending = appointments.filter(apt => apt.status === 'Beklemede');
       setPendingApprovals(pending);
-
-      // TODO: Load all customers from backend
-      // Şimdilik appointment'lardan müşterileri çıkarıyoruz
-      const uniqueCustomers = {};
-      appointments.forEach(apt => {
-        if (apt.customer_id && apt.customer_id._id) {
-          uniqueCustomers[apt.customer_id._id] = apt.customer_id;
-        }
-      });
-      setCustomers(Object.values(uniqueCustomers));
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
