@@ -112,10 +112,8 @@ router.route('/add').post(async (req, res) => {
         const conflictingAppointment = await Appointment.findOne({
             staff_id,
             status: { $ne: 'İptal Edildi' },
-            $or: [
-                { start_time: { $lt: end_time, $gte: start_time } },
-                { end_time: { $lte: end_time, $gt: start_time } }
-            ]
+            start_time: { $lt: end_time },
+            end_time: { $gt: start_time }
         });
 
         if (conflictingAppointment) {
@@ -184,10 +182,8 @@ router.route('/update/:id').post(async (req, res) => {
                 _id: { $ne: appointment._id },
                 staff_id: appointment.staff_id,
                 status: { $ne: 'İptal Edildi' },
-                $or: [
-                    { start_time: { $lt: new_end_time, $gte: new_start_time } },
-                    { end_time: { $lte: new_end_time, $gt: new_start_time } }
-                ]
+                start_time: { $lt: new_end_time },
+                end_time: { $gt: new_start_time }
             });
 
             if (conflictingAppointment) {
@@ -327,7 +323,7 @@ router.route('/available-slots').post(async (req, res) => {
         }
 
         const startOfDay = new Date(date);
-        startOfDay.setHours(9, 0, 0, 0);
+        startOfDay.setHours(10, 0, 0, 0);
 
         const endOfDay = new Date(date);
         endOfDay.setHours(20, 0, 0, 0);
@@ -533,11 +529,17 @@ router.route('/reschedule/:id').post(async (req, res) => {
             return res.status(404).json('Appointment not found');
         }
 
+        // Yeni bitiş zamanını hesapla
+        const new_start_time = new Date(start_time);
+        const new_end_time = new Date(new_start_time.getTime() + appointment.service_id.duration_minutes * 60000);
+
         // Yeni saatte başka randevu var mı kontrol et
         const conflictingAppointment = await Appointment.findOne({
             _id: { $ne: req.params.id },
-            start_time: new Date(start_time),
-            status: { $ne: 'İptal Edildi' }
+            staff_id: appointment.staff_id,
+            status: { $ne: 'İptal Edildi' },
+            start_time: { $lt: new_end_time },
+            end_time: { $gt: new_start_time }
         });
 
         if (conflictingAppointment) {
@@ -545,7 +547,8 @@ router.route('/reschedule/:id').post(async (req, res) => {
         }
 
         // Saati güncelle
-        appointment.start_time = new Date(start_time);
+        appointment.start_time = new_start_time;
+        appointment.end_time = new_end_time;
         await appointment.save();
 
         res.json({ message: 'Randevu saati güncellendi', appointment });
