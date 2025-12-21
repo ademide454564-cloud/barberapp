@@ -26,6 +26,7 @@ const photosRouter = require('./routes/photos');
 const reviewsRouter = require('./routes/reviews');
 const blockedTimesRouter = require('./routes/blockedTimes');
 const serviceExtrasRouter = require('./routes/serviceExtras');
+const notificationsRouter = require('./routes/notifications');
 
 app.use('/auth', authRouter);
 app.use('/services', servicesRouter);
@@ -37,6 +38,7 @@ app.use('/photos', photosRouter);
 app.use('/reviews', reviewsRouter);
 app.use('/blocked-times', blockedTimesRouter);
 app.use('/service-extras', serviceExtrasRouter);
+app.use('/notifications', notificationsRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

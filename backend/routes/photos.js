@@ -10,6 +10,15 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Featured photo endpoint
+router.get('/featured', async (req, res) => {
+  try {
+    res.json(null);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Gallery photos endpoint
 router.get('/gallery', async (req, res) => {
   try {
