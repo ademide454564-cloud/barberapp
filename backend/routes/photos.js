@@ -10,4 +10,22 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Gallery photos endpoint
+router.get('/gallery', async (req, res) => {
+  try {
+    res.json([]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Admin all photos endpoint
+router.get('/admin/all', async (req, res) => {
+  try {
+    res.json([]);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
