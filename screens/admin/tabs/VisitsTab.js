@@ -227,14 +227,14 @@ const VisitsTab = React.memo(({ navigation }) => {
         <View style={styles.visitServices}>
           <View style={styles.serviceRow}>
             <Text style={styles.serviceName}>{visit.service_id?.name}</Text>
-            <Text style={styles.servicePrice}>₺{visit.service_id?.price}</Text>
+            <Text style={styles.servicePrice}>₺{visit.amount || visit.service_id?.price || 0}</Text>
           </View>
         </View>
 
         <View style={styles.visitFooter}>
           <View style={styles.visitTotal}>
             <Text style={styles.totalLabel}>Toplam:</Text>
-            <Text style={styles.totalAmount}>₺{visit.service_id?.price}</Text>
+            <Text style={styles.totalAmount}>₺{visit.amount || visit.service_id?.price || 0}</Text>
           </View>
           {activeTab === 'open' && (
             <TouchableOpacity
