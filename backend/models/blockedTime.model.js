@@ -9,10 +9,12 @@ const blockedTimeSchema = new Schema({
     enum: ['full_day', 'time_range'],
     required: true,
   },
-  // Kapalı olan tarih
+  // Kapalı olan tarih (recurring için opsiyonel)
   date: {
     type: Date,
-    required: true,
+    required: function() {
+      return !this.is_recurring; // Recurring değilse date zorunlu
+    }
   },
   // Sadece time_range için (opsiyonel)
   start_time: {
