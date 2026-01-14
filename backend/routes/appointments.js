@@ -3,8 +3,12 @@ let Appointment = require('../models/appointment.model');
 let Customer = require('../models/customer.model');
 let Service = require('../models/service.model');
 let BlockedTime = require('../models/blockedTime.model');
+let Staff = require('../models/staff.model');
+let Notification = require('../models/notification.model');
+let Settings = require('../models/settings.model');
 const { sendSMS } = require('../utils/smsService');
 const { sendPushNotification } = require('../utils/pushNotification');
+const { notifyNewAppointment, notifyCancellation } = require('../utils/notificationHelper');
 
 // Geçici kod saklama (production'da Redis kullanılmalı)
 const verificationCodes = new Map();
@@ -109,16 +113,99 @@ router.route('/add').post(async (req, res) => {
 
         const end_time = new Date(new Date(start_time).getTime() + service.duration_minutes * 60000);
 
+        console.log('=== YENİ RANDEVU ÇAKIŞMA KONTROLÜ ===');
+        console.log('Staff ID:', staff_id);
+        console.log('Start Time:', start_time);
+        console.log('End Time:', end_time);
+
+        // GEÇMİŞ TARİH KONTROLÜ - GEÇMİŞE RANDEVU ALINAMAZ!
+        const now = new Date();
+        const requestedStartTime = new Date(start_time);
+
+        if (requestedStartTime <= now) {
+            console.log('HATA: Geçmiş tarihe randevu alınamaz!');
+            console.log('Şu an:', now);
+            console.log('İstenen tarih:', requestedStartTime);
+            return res.status(400).json({
+                error: 'Geçmiş tarihe randevu alınamaz! Lütfen ileriki bir tarih seçin.'
+            });
+        }
+
+        // AYNI GÜN KONTROLÜ - BİR MÜŞTERİ AYNI GÜNDE SADECE 1 RANDEVU ALABİLİR!
+        const startOfRequestedDay = new Date(requestedStartTime);
+        startOfRequestedDay.setHours(0, 0, 0, 0);
+
+        const endOfRequestedDay = new Date(requestedStartTime);
+        endOfRequestedDay.setHours(23, 59, 59, 999);
+
+        const existingSameDayAppointment = await Appointment.findOne({
+            customer_id: existingCustomer._id,
+            status: { $nin: ['İptal Edildi'] },
+            start_time: {
+                $gte: startOfRequestedDay,
+                $lte: endOfRequestedDay
+            }
+        });
+
+        if (existingSameDayAppointment) {
+            console.log('HATA: Bu müşterinin bu gün için zaten bir randevusu var!');
+            console.log('Müşteri:', existingCustomer.name, existingCustomer.phone_number);
+            console.log('Mevcut randevu:', existingSameDayAppointment.start_time);
+            return res.status(400).json({
+                error: 'Bu gün için zaten bir randevunuz var. Aynı gün içinde birden fazla randevu alamazsınız.'
+            });
+        }
+
+        console.log('Aynı gün kontrolü: OK - Bu müşterinin bugün randevusu yok');
+
         const conflictingAppointment = await Appointment.findOne({
             staff_id,
-            status: { $ne: 'İptal Edildi' },
-            start_time: { $lt: end_time },
-            end_time: { $gt: start_time }
+            status: { $nin: ['İptal Edildi'] },
+            $or: [
+                // Yeni randevu, mevcut randevunun içine düşüyor
+                {
+                    start_time: { $lte: new Date(start_time) },
+                    end_time: { $gt: new Date(start_time) }
+                },
+                // Yeni randevunun bitişi, mevcut randevuyla çakışıyor
+                {
+                    start_time: { $lt: end_time },
+                    end_time: { $gte: end_time }
+                },
+                // Yeni randevu, mevcut randevuyu tamamen kapsıyor
+                {
+                    start_time: { $gte: new Date(start_time) },
+                    end_time: { $lte: end_time }
+                }
+            ]
         });
 
         if (conflictingAppointment) {
-            return res.status(400).json('Error: Appointment time conflicts with an existing appointment.');
+            console.log('ÇAKIŞMA TESPİT EDİLDİ!');
+            console.log('Çakışan Randevu:', {
+                id: conflictingAppointment._id,
+                start: conflictingAppointment.start_time,
+                end: conflictingAppointment.end_time,
+                status: conflictingAppointment.status
+            });
+            return res.status(400).json({
+                error: 'Bu saatte zaten bir randevu var!',
+                conflictingAppointment: {
+                    start_time: conflictingAppointment.start_time,
+                    end_time: conflictingAppointment.end_time
+                }
+            });
         }
+
+        console.log('Çakışma yok, randevu oluşturuluyor...');
+
+        // Otomatik onaylama ayarını kontrol et
+        let appointmentSettings = await Settings.findOne({ type: 'appointment' });
+        const shouldAutoApprove = appointmentSettings?.autoApprove || false;
+        const initialStatus = shouldAutoApprove ? 'Onaylandı' : 'Beklemede';
+
+        console.log('Otomatik onaylama ayarı:', shouldAutoApprove);
+        console.log('Randevu durumu:', initialStatus);
 
         const newAppointment = new Appointment({
             customer_id: existingCustomer._id,
@@ -126,11 +213,22 @@ router.route('/add').post(async (req, res) => {
             staff_id,
             start_time,
             end_time,
-            status: 'Beklemede',
+            status: initialStatus,
             is_verified: false
         });
 
-        await newAppointment.save();
+        const savedAppointment = await newAppointment.save();
+
+        // Admin'e bildirim gönder (yeni sistem)
+        try {
+            const populatedAppointment = await Appointment.findById(savedAppointment._id)
+                .populate('customer_id')
+                .populate('service_id');
+            await notifyNewAppointment(populatedAppointment);
+        } catch (notificationError) {
+            console.error('Bildirim gönderilirken hata:', notificationError);
+            // Bildirim hatası randevu oluşturmayı engellemez
+        }
 
         // SMS gönderimi
         const smsMessage = `KAAN HERLİ KUAFÖR SALONU\n\nMerhaba ${name},\n\nRandevunuz başarıyla oluşturuldu.\n\nHizmet: ${service.name}\nTarih: ${new Date(start_time).toLocaleDateString('tr-TR')}\nSaat: ${new Date(start_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n\nBizi tercih ettiğiniz için teşekkür ederiz.\n\nKaan Herli Kuaför Salonu`;
@@ -168,6 +266,16 @@ router.route('/update/:id').post(async (req, res) => {
                     appointment.customer_id,
                     { $inc: { cancellation_count: 1 } }
                 );
+
+                // İptal bildirimi gönder (Admin'e)
+                try {
+                    const populatedAppointment = await Appointment.findById(appointment._id)
+                        .populate('customer_id')
+                        .populate('service_id');
+                    await notifyCancellation(populatedAppointment);
+                } catch (notificationError) {
+                    console.error('İptal bildirimi gönderilirken hata:', notificationError);
+                }
             }
         }
 
@@ -177,19 +285,52 @@ router.route('/update/:id').post(async (req, res) => {
             const service = appointment.service_id;
             const new_end_time = new Date(new_start_time.getTime() + service.duration_minutes * 60000);
 
+            console.log('=== RANDEVU GÜNCELLEME ÇAKIŞMA KONTROLÜ ===');
+            console.log('Randevu ID:', appointment._id);
+            console.log('Yeni Start Time:', new_start_time);
+            console.log('Yeni End Time:', new_end_time);
+
             // Çakışma kontrolü (mevcut randevuyu hariç tut)
             const conflictingAppointment = await Appointment.findOne({
                 _id: { $ne: appointment._id },
                 staff_id: appointment.staff_id,
-                status: { $ne: 'İptal Edildi' },
-                start_time: { $lt: new_end_time },
-                end_time: { $gt: new_start_time }
+                status: { $nin: ['İptal Edildi'] },
+                $or: [
+                    // Yeni randevu, mevcut randevunun içine düşüyor
+                    {
+                        start_time: { $lte: new_start_time },
+                        end_time: { $gt: new_start_time }
+                    },
+                    // Yeni randevunun bitişi, mevcut randevuyla çakışıyor
+                    {
+                        start_time: { $lt: new_end_time },
+                        end_time: { $gte: new_end_time }
+                    },
+                    // Yeni randevu, mevcut randevuyu tamamen kapsıyor
+                    {
+                        start_time: { $gte: new_start_time },
+                        end_time: { $lte: new_end_time }
+                    }
+                ]
             });
 
             if (conflictingAppointment) {
-                return res.status(400).json('Error: Appointment time conflicts with an existing appointment.');
+                console.log('ÇAKIŞMA TESPİT EDİLDİ!');
+                console.log('Çakışan Randevu:', {
+                    id: conflictingAppointment._id,
+                    start: conflictingAppointment.start_time,
+                    end: conflictingAppointment.end_time
+                });
+                return res.status(400).json({
+                    error: 'Bu saatte zaten bir randevu var!',
+                    conflictingAppointment: {
+                        start_time: conflictingAppointment.start_time,
+                        end_time: conflictingAppointment.end_time
+                    }
+                });
             }
 
+            console.log('Çakışma yok, randevu güncelleniyor...');
             appointment.start_time = new_start_time;
             appointment.end_time = new_end_time;
         }
@@ -360,26 +501,77 @@ router.route('/available-slots').post(async (req, res) => {
             return res.json([]);
         }
 
+        // Sadece aktif randevuları al (İptal Edildi hariç)
         const appointments = await Appointment.find({
             staff_id,
-            status: { $ne: 'İptal Edildi' },
+            status: { $nin: ['İptal Edildi'] },
             start_time: {
                 $gte: startOfDay,
                 $lt: endOfDay
             }
         }).sort('start_time');
 
+        console.log('=== MÜSAİT SLOT KONTROLÜ ===');
+        console.log('Tarih:', date);
+        console.log('Bu gün için randevu sayısı:', appointments.length);
+        console.log('Randevular:', appointments.map(a => ({
+            start: a.start_time,
+            end: a.end_time,
+            status: a.status
+        })));
+
         const slots = [];
         const slotDuration = service.duration_minutes;
+        const now = new Date(); // ŞU ANKİ ZAMAN
         let currentTime = new Date(startOfDay);
+
+        // EĞER SEÇİLEN GÜN BUGÜNSE, ŞU ANKİ SAATTEN BAŞLA
+        if (now > startOfDay && now < endOfDay) {
+            // Şu anki saati 30 dakikalık slota yuvarla (üst yuvarla)
+            const minutes = now.getMinutes();
+            const roundedMinutes = Math.ceil(minutes / 30) * 30;
+            currentTime = new Date(now);
+            currentTime.setMinutes(roundedMinutes);
+            currentTime.setSeconds(0);
+            currentTime.setMilliseconds(0);
+
+            console.log('BUGÜN SEÇİLDİ - Başlangıç saati şu ana ayarlandı:', currentTime);
+        }
 
         while (currentTime < endOfDay) {
             const slotEnd = new Date(currentTime.getTime() + slotDuration * 60000);
 
+            // GEÇMİŞ SAAT KONTROLÜ - GEÇMİŞ SAATLERİ HİÇ GÖSTERME!
+            if (currentTime <= now) {
+                currentTime = new Date(currentTime.getTime() + 30 * 60000);
+                continue; // Bu slotu atla, geçmiş saat!
+            }
+
+            // DAHA SIKI ÇAKIŞMA KONTROLÜ
             const isConflict = appointments.some(apt => {
                 const aptStart = new Date(apt.start_time);
                 const aptEnd = new Date(apt.end_time);
-                return (currentTime < aptEnd && slotEnd > aptStart);
+
+                // Herhangi bir çakışma durumu
+                const hasOverlap = (
+                    // Slot başlangıcı randevunun içinde
+                    (currentTime >= aptStart && currentTime < aptEnd) ||
+                    // Slot bitişi randevunun içinde
+                    (slotEnd > aptStart && slotEnd <= aptEnd) ||
+                    // Slot randevuyu tamamen kapsıyor
+                    (currentTime <= aptStart && slotEnd >= aptEnd)
+                );
+
+                if (hasOverlap) {
+                    console.log('Çakışma tespit edildi:', {
+                        slotStart: currentTime,
+                        slotEnd: slotEnd,
+                        aptStart: aptStart,
+                        aptEnd: aptEnd
+                    });
+                }
+
+                return hasOverlap;
             });
 
             // Kapalı saat aralığında mı kontrol et
@@ -419,21 +611,41 @@ router.route('/available-slots').post(async (req, res) => {
 router.route('/update-payment/:id').post(async (req, res) => {
     const { payment_method, amount, is_paid, payment_note } = req.body;
 
+    console.log('=== ÖDEME GÜNCELLENİYOR ===');
+    console.log('ID:', req.params.id);
+    console.log('Payment Method:', payment_method);
+    console.log('Amount:', amount, 'Type:', typeof amount);
+    console.log('Is Paid:', is_paid, 'Type:', typeof is_paid);
+
     try {
         const appointment = await Appointment.findById(req.params.id)
             .populate('customer_id')
             .populate('service_id');
 
         if (!appointment) {
+            console.log('HATA: Randevu bulunamadı!');
             return res.status(404).json('Randevu bulunamadı');
         }
 
+        console.log('Eski değerler:', {
+            payment_method: appointment.payment_method,
+            amount: appointment.amount,
+            is_paid: appointment.is_paid
+        });
+
         const wasNotCompleted = appointment.status !== 'Tamamlandı';
 
-        appointment.payment_method = payment_method;
-        appointment.amount = amount || 0;
-        appointment.is_paid = is_paid || false;
+        // Ödeme bilgilerini güncelle
+        appointment.payment_method = payment_method || null;
+        appointment.amount = parseFloat(amount) || 0;
+        appointment.is_paid = Boolean(is_paid);
         appointment.payment_note = payment_note || '';
+
+        console.log('Yeni değerler:', {
+            payment_method: appointment.payment_method,
+            amount: appointment.amount,
+            is_paid: appointment.is_paid
+        });
 
         // Ödeme yapıldıysa ve onaylandıysa, durumu "Tamamlandı" yap
         if (is_paid && appointment.status === 'Onaylandı') {
@@ -533,18 +745,52 @@ router.route('/reschedule/:id').post(async (req, res) => {
         const new_start_time = new Date(start_time);
         const new_end_time = new Date(new_start_time.getTime() + appointment.service_id.duration_minutes * 60000);
 
+        console.log('=== DRAG & DROP ÇAKIŞMA KONTROLÜ ===');
+        console.log('Randevu ID:', req.params.id);
+        console.log('Yeni Start Time:', new_start_time);
+        console.log('Yeni End Time:', new_end_time);
+
         // Yeni saatte başka randevu var mı kontrol et
         const conflictingAppointment = await Appointment.findOne({
             _id: { $ne: req.params.id },
             staff_id: appointment.staff_id,
-            status: { $ne: 'İptal Edildi' },
-            start_time: { $lt: new_end_time },
-            end_time: { $gt: new_start_time }
+            status: { $nin: ['İptal Edildi'] },
+            $or: [
+                // Yeni randevu, mevcut randevunun içine düşüyor
+                {
+                    start_time: { $lte: new_start_time },
+                    end_time: { $gt: new_start_time }
+                },
+                // Yeni randevunun bitişi, mevcut randevuyla çakışıyor
+                {
+                    start_time: { $lt: new_end_time },
+                    end_time: { $gte: new_end_time }
+                },
+                // Yeni randevu, mevcut randevuyu tamamen kapsıyor
+                {
+                    start_time: { $gte: new_start_time },
+                    end_time: { $lte: new_end_time }
+                }
+            ]
         });
 
         if (conflictingAppointment) {
-            return res.status(400).json({ message: 'Bu saatte başka bir randevu var' });
+            console.log('ÇAKIŞMA TESPİT EDİLDİ!');
+            console.log('Çakışan Randevu:', {
+                id: conflictingAppointment._id,
+                start: conflictingAppointment.start_time,
+                end: conflictingAppointment.end_time
+            });
+            return res.status(400).json({
+                error: 'Bu saatte zaten bir randevu var!',
+                conflictingAppointment: {
+                    start_time: conflictingAppointment.start_time,
+                    end_time: conflictingAppointment.end_time
+                }
+            });
         }
+
+        console.log('Çakışma yok, randevu taşınıyor...');
 
         // Saati güncelle
         appointment.start_time = new_start_time;

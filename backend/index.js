@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
+const { startReviewReminderCron } = require('./utils/reviewReminderCron');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -14,6 +15,9 @@ mongoose.connect(uri);
 const connection = mongoose.connection;
 connection.once('open', () => {
   console.log("MongoDB database connection established successfully");
+
+  // Değerlendirme hatırlatması cron job'unu başlat
+  startReviewReminderCron();
 })
 
 const authRouter = require('./routes/auth');
@@ -27,6 +31,10 @@ const reviewsRouter = require('./routes/reviews');
 const blockedTimesRouter = require('./routes/blockedTimes');
 const serviceExtrasRouter = require('./routes/serviceExtras');
 const notificationsRouter = require('./routes/notifications');
+const expensesRouter = require('./routes/expenses');
+const settingsRouter = require('./routes/settings');
+const productsRouter = require('./routes/products');
+const productSalesRouter = require('./routes/productSales');
 
 app.use('/auth', authRouter);
 app.use('/services', servicesRouter);
@@ -39,6 +47,10 @@ app.use('/reviews', reviewsRouter);
 app.use('/blocked-times', blockedTimesRouter);
 app.use('/service-extras', serviceExtrasRouter);
 app.use('/notifications', notificationsRouter);
+app.use('/expenses', expensesRouter);
+app.use('/settings', settingsRouter);
+app.use('/products', productsRouter);
+app.use('/product-sales', productSalesRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -64,7 +76,11 @@ app.get('/', (req, res) => {
       '/photos',
       '/reviews',
       '/blocked-times',
-      '/service-extras'
+      '/service-extras',
+      '/expenses',
+      '/settings',
+      '/products',
+      '/product-sales'
     ]
   });
 });

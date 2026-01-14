@@ -7,6 +7,7 @@ const reviewSchema = new Schema({
   appointment_id: { type: Schema.Types.ObjectId },
   rating: { type: Number, required: true },
   comment: { type: String, default: '' },
+  is_hidden: { type: Boolean, default: false },
 }, {
   timestamps: true,
 });

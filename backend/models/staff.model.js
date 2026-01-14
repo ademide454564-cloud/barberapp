@@ -9,6 +9,7 @@ const staffSchema = new Schema({
   specialties: [{ type: String }],
   profile_image: { type: String, required: false },
   is_active: { type: Boolean, default: true },
+  color: { type: String, required: false, default: '#3B82F6' }, // Varsayılan mavi
 }, {
   timestamps: true,
 });

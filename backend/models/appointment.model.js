@@ -16,6 +16,8 @@ const appointmentSchema = new Schema({
   amount: { type: Number, default: 0 },
   is_paid: { type: Boolean, default: false },
   payment_note: { type: String, default: '' },
+  // Değerlendirme hatırlatması
+  review_reminder_sent: { type: Boolean, default: false },
 }, {
   timestamps: true,
 });

@@ -102,23 +102,33 @@ router.post('/verify-and-register', async (req, res) => {
         }
 
         // Kullanıcı zaten var mı?
-        let customer = await Customer.findOne({ phone_number });
+        let customer = await Customer.findOne({ phone_number: phone_number.trim() });
+
         if (customer) {
-            return res.status(400).json({ message: 'Bu telefon numarası zaten kayıtlı.' });
+            // Eğer customer zaten varsa (örn: staff olarak eklenmiş)
+            // Sadece eksik bilgileri güncelle, is_admin'i KORU
+            console.log(`Customer already exists: ${phone_number}, is_admin: ${customer.is_admin}`);
+            customer.name = name;
+            customer.email = email || customer.email;
+            customer.password = password;
+            // is_admin değerine dokunmuyoruz - mevcut değeri korunuyor
+            await customer.save();
+            console.log(`Customer updated, is_admin preserved: ${customer.is_admin}`);
+        } else {
+            // Yeni kullanıcı oluştur
+            const isAdmin = phone_number === '5541483634';
+            console.log(`Creating new customer: ${phone_number}, is_admin: ${isAdmin}`);
+
+            customer = new Customer({
+                name,
+                phone_number,
+                email,
+                password,
+                is_admin: isAdmin
+            });
+
+            await customer.save();
         }
-
-        // Yeni kullanıcı oluştur
-        const isAdmin = phone_number === '5541483634';
-
-        customer = new Customer({
-            name,
-            phone_number,
-            email,
-            password,
-            is_admin: isAdmin
-        });
-
-        await customer.save();
 
         // Doğrulamayı sil/işaretle
         await Verification.deleteMany({ phone_number });
